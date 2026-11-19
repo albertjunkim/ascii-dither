@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
+import { existsSync } from "node:fs"
 import { cleanup, render } from "@testing-library/react"
 import { createAgent } from "@ui-sdk/react/agent"
 import { afterEach, expect, test, vi } from "vitest"
 import { normalizeStyle } from "./ascii-dither"
 import { backgroundNames, backgrounds } from "./backgrounds"
+import {
+  imageBackground,
+  imageBackgroundNames,
+  imageBackgrounds,
+  imageSources,
+} from "./image-backgrounds"
 import { AsciiDither } from "./react"
 
 declare global {
@@ -194,4 +201,53 @@ test("the app's own image prop takes any address", () => {
       .querySelector('[data-slot="ascii-dither"]')
       ?.getAttribute("data-image")
   ).toBe("loading")
+})
+
+test("every image background has its photo and a style the component takes", () => {
+  expect(imageBackgroundNames).toHaveLength(25)
+  for (const name of imageBackgroundNames) {
+    const { file, style } = imageBackgrounds[name]
+    expect(existsSync(`images/${file}`), `images/${file} is missing`).toBe(true)
+    expect(() => normalizeStyle(style), name).not.toThrow()
+  }
+  expect(imageBackground("dunes", "/assets/")).toMatchObject({
+    image: "/assets/dunes.jpg",
+  })
+  expect(imageSources()["Alpine Lake"]).toBe("/ascii-dither/alpine-lake.jpg")
+})
+
+test("an image preset brings its picture, and any other preset removes it", async () => {
+  const { container } = render(<AsciiDither images={imageSources()} />)
+  const root = container.querySelector('[data-slot="ascii-dither"]')
+  const [entry] = onPage()
+  const apply = (name: string) =>
+    agent.act({ steps: [{ ref: entry.ref, action: "applyPreset", args: [name] }] })
+
+  const found = await agent.query({ within: entry.ref })
+  if ("error" in found) {
+    throw new Error(found.error)
+  }
+  expect(found[0].items?.length ?? 0).toBe(50)
+
+  const photo = await apply("Mirror Lake")
+  expect(photo.ok, photo.error?.message).toBe(true)
+  expect(onPage()[0].image).toBe("Mirror Lake")
+  expect(root?.getAttribute("data-image")).toBe("loading")
+
+  const pattern = await apply("Aurora")
+  expect(pattern.ok, pattern.error?.message).toBe(true)
+  expect(onPage()[0].image).toBeNull()
+  expect(root?.getAttribute("data-pattern")).toBe("aurora")
+})
+
+test("an image preset is refused while its picture isn't listed", async () => {
+  render(<AsciiDither />)
+  const [entry] = onPage()
+
+  const result = await agent.act({
+    steps: [{ ref: entry.ref, action: "applyPreset", args: ["Dunes"] }],
+  })
+  expect(result.ok).toBe(false)
+  expect(result.error?.message).toContain('needs the image "Dunes"')
+  expect(onPage()[0].image).toBeNull()
 })

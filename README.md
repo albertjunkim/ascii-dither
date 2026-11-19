@@ -12,7 +12,7 @@ npm install github:albertjunkim/ascii-dither @ui-sdk/core @ui-sdk/react
 
 The package ships TypeScript source, so your bundler compiles it. Vite does that as is. In Next.js, add `transpilePackages: ["ascii-dither"]` to `next.config` (that setting hasn't been run against this repo yet).
 
-Or skip the dependency and copy `src/` into your app. It's five files and only needs `@ui-sdk/core` and `@ui-sdk/react`.
+Or skip the dependency and copy `src/` into your app. It's six files and only needs `@ui-sdk/core` and `@ui-sdk/react`.
 
 ## Use a background
 
@@ -44,6 +44,29 @@ npm install
 npm run gallery
 ```
 
+## Use a photo background
+
+![The 25 photo backgrounds](docs/image-backgrounds.png)
+
+Another 25 looks are built on photos in `images/`. Serve that folder from your app first:
+
+```bash
+cp -r node_modules/ascii-dither/images public/ascii-dither
+```
+
+```tsx
+import { imageBackground } from "ascii-dither"
+import { AsciiDither } from "ascii-dither/react"
+
+<AsciiDither className="absolute inset-0 -z-10" {...imageBackground("dunes")} />
+```
+
+`imageBackground(name, base)` returns the photo's URL and its tuned style; `base` defaults to `/ascii-dither`.
+
+The 25 names: `dunes`, `alpineLake`, `peaks`, `canyon`, `mesa`, `teaHills`, `mirrorLake`, `moon`, `eclipse`, `lunarSurface`, `cityLights`, `nebula`, `carina`, `saturn`, `spiral`, `courtyard`, `trestle`, `skyline`, `facade`, `tiles`, `jellyfish`, `shrike`, `periwinkle`, `spices`, `dish`.
+
+The photos come from two public wallpaper collections that describe them as CC0 or public domain. [`images/CREDITS.md`](images/CREDITS.md) lists every source; check it before you ship them.
+
 ## Make your own
 
 A background is a partial style. Anything you leave out keeps its default, and you can start from a built-in one:
@@ -70,6 +93,7 @@ A background is a partial style. Anything you leave out keeps its default, and y
 | `cellSize` | Glyph height in px, 6 to 32 | `12` |
 | `speed` | 0 to 3 | `1` |
 | `contrast` | 0 to 10. Higher leaves more empty space | `5` |
+| `brightness` | -1 to 1. Lifts or lowers the whole field, like exposure | `0` |
 | `scale` | 0.3 to 4. Size of the shapes | `1` |
 | `dither` | 0 to 1. How much the Bayer pattern breaks up tone bands | `1` |
 | `vignette` | 0 to 1. Thins the field toward the edges | `0` |
@@ -112,7 +136,7 @@ await agent.act({
 | --- | --- |
 | `setValue(style)` | Replaces the look, with defaults for any key left out |
 | `tweak(patch)` | Changes only the keys given |
-| `applyPreset(name)` | Applies a built-in background, like `"Aurora"` |
+| `applyPreset(name)` | Applies a built-in background, like `"Aurora"` or `"Dunes"` |
 | `setImage(name)` | Shows one of the pictures you list in `images` |
 | `clearImage()` | Goes back to the pattern |
 | `setPaused(boolean)` | Freezes or resumes the motion |
@@ -120,6 +144,7 @@ await agent.act({
 - A value that doesn't fit is refused with a message that says what the key takes, so a model can correct itself.
 - `onValueChange` gets `details.source === "agent"`, and `details.cancel()` refuses the change.
 - An agent can only load pictures you offer: `images={{ Dunes: "/dunes.jpg" }}`. To allow other addresses, pass `allowImage={(url) => url.startsWith("/uploads/")}`.
+- `images={imageSources()}` offers all 25 photos, which also makes the photo backgrounds available to `applyPreset`.
 - `asciiDitherGuide` is a short description of the style keys and actions for your model's instructions.
 
 UI SDK doesn't run the model for you. Hand `agentTools` from `@ui-sdk/react/agent` to your model SDK and route each call to `agent.snapshot`, `agent.act` or `agent.query`, or call `registerTools(agent, { allow })` for a browser agent.

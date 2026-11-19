@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import { createAgent } from "@ui-sdk/react/agent"
 import { StrictMode, useState } from "react"
 import { createRoot } from "react-dom/client"
@@ -5,6 +7,8 @@ import {
   backgroundLabel,
   backgroundNames,
   backgrounds,
+  imageBackgroundNames,
+  imageBackgrounds,
   normalizeStyle,
   type AsciiDitherStyle,
 } from "../../src/index"
@@ -15,21 +19,50 @@ import { AsciiDither } from "../../src/react"
 const agent = createAgent()
 Object.assign(window, { agent })
 
+// Vite hands back each photo's URL. In your app, serve `images/` from a public
+// folder and use `imageSources()` in place of this.
+const urls = import.meta.glob<string>("../../images/*.jpg", {
+  eager: true,
+  query: "?url",
+  import: "default",
+})
+const sources = Object.fromEntries(
+  imageBackgroundNames.map((name) => [
+    backgroundLabel(name),
+    urls[`../../images/${imageBackgrounds[name].file}`] ?? "",
+  ])
+)
+
 function Gallery() {
   const [style, setStyle] = useState<AsciiDitherStyle>(() =>
     normalizeStyle(backgrounds.phosphor)
   )
+  const [image, setImage] = useState<string | null>(null)
+
   // Equal styles are the same object, so this finds the background showing.
-  const current = backgroundNames.find(
-    (name) => normalizeStyle(backgrounds[name]) === style
+  const pattern = image
+    ? undefined
+    : backgroundNames.find(
+        (name) => normalizeStyle(backgrounds[name]) === style
+      )
+  const photo = imageBackgroundNames.find(
+    (name) =>
+      backgroundLabel(name) === image &&
+      normalizeStyle(imageBackgrounds[name].style) === style
   )
-  const usage = current
-    ? `<AsciiDither defaultValue={backgrounds.${current}} />`
-    : `<AsciiDither defaultValue={${JSON.stringify(style)}} />`
+  const current = pattern ?? photo
+  const usage = pattern
+    ? `<AsciiDither defaultValue={backgrounds.${pattern}} />`
+    : photo
+      ? `<AsciiDither {...imageBackground("${photo}")} />`
+      : `<AsciiDither defaultValue={${JSON.stringify(style)}} />`
 
   const askAgent = () => {
-    const others = backgroundNames.filter((name) => name !== current)
+    const others = [...backgroundNames, ...imageBackgroundNames].filter(
+      (name) => name !== current
+    )
     const pick = others[Math.floor(Math.random() * others.length)]
+    if (!pick) return
     void agent.act({
       steps: [
         {
@@ -47,6 +80,9 @@ function Gallery() {
         className="backdrop"
         value={style}
         onValueChange={setStyle}
+        image={image}
+        onImageChange={setImage}
+        images={sources}
       />
       <div className="panel">
         <div className="row">
@@ -62,13 +98,31 @@ function Gallery() {
             Run an agent step
           </button>
         </div>
-        <div className="names">
+        <div className="names" aria-label="Patterns">
           {backgroundNames.map((name) => (
             <button
               key={name}
               type="button"
               aria-pressed={name === current}
-              onClick={() => setStyle(normalizeStyle(backgrounds[name]))}
+              onClick={() => {
+                setImage(null)
+                setStyle(normalizeStyle(backgrounds[name]))
+              }}
+            >
+              {backgroundLabel(name)}
+            </button>
+          ))}
+        </div>
+        <div className="names" aria-label="Photos">
+          {imageBackgroundNames.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={name === current}
+              onClick={() => {
+                setImage(backgroundLabel(name))
+                setStyle(normalizeStyle(imageBackgrounds[name].style))
+              }}
             >
               {backgroundLabel(name)}
             </button>

@@ -43,6 +43,8 @@ type AsciiDitherRenderOptions = {
   speed?: number
   /** 0 to 10. Higher leaves more empty space and harder edges. Default 5. */
   contrast?: number
+  /** -1 to 1. Lifts or lowers the whole field before contrast. Default 0. */
+  brightness?: number
   /** Size of the features. 2 is twice as large. Default 1. */
   scale?: number
   /** 0 to 1. How much the Bayer pattern breaks up the tone bands. Default 1. */
@@ -111,6 +113,7 @@ uniform float uDpr;
 uniform float uTime;
 uniform float uScale;
 uniform float uContrast;
+uniform float uBrightness;
 uniform float uDither;
 uniform float uFlow;
 uniform float uCount;
@@ -407,6 +410,7 @@ void main() {
     v = blobsField(q, center, uTime);
   }
 
+  v = clamp(v + uBrightness * 0.5, 0.0, 1.0);
   if (uInvert > 0.5) v = 1.0 - v;
   v *= 1.0 - uVignette * smoothstep(0.25, 0.85, length(uv - 0.5) * 1.3);
 
@@ -445,6 +449,7 @@ const UNIFORMS = [
   "uTime",
   "uScale",
   "uContrast",
+  "uBrightness",
   "uDither",
   "uFlow",
   "uCount",
@@ -910,6 +915,7 @@ function mountAsciiDither(
     gl.uniform1f(u.uTime, time)
     gl.uniform1f(u.uScale, clamp(p.scale ?? 1, 0.05, 20))
     gl.uniform1f(u.uContrast, clamp(p.contrast ?? 5, 0, 10))
+    gl.uniform1f(u.uBrightness, clamp(p.brightness ?? 0, -1, 1))
     gl.uniform1f(u.uDither, clamp(p.dither ?? 1, 0, 1))
     gl.uniform1f(u.uFlow, clamp(p.flow ?? 0.25, 0, 1))
     gl.uniform1f(u.uCount, glyphCount)

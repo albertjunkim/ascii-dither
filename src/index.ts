@@ -14,6 +14,13 @@ export {
   type BackgroundName,
 } from "./backgrounds"
 export {
+  imageBackground,
+  imageBackgroundNames,
+  imageBackgrounds,
+  imageSources,
+  type ImageBackgroundName,
+} from "./image-backgrounds"
+export {
   mountAsciiDither,
   PATTERNS,
   type AsciiDitherPattern,

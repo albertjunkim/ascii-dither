@@ -13,6 +13,7 @@ import {
   type ChangeDetails,
 } from "@ui-sdk/core"
 import { backgroundLabel, backgrounds } from "./backgrounds"
+import { imageBackgrounds } from "./image-backgrounds"
 import {
   mountAsciiDither,
   PATTERNS,
@@ -43,6 +44,8 @@ type AsciiDitherStyle = {
   speed: number
   /** 0 to 10. Higher leaves more empty space. */
   contrast: number
+  /** -1 to 1. Lifts or lowers the whole field, like exposure on a photo. */
+  brightness: number
   /** 0.3 to 4. Size of the shapes. */
   scale: number
   /** 0 to 1. How much the Bayer pattern breaks up the tone bands. */
@@ -102,6 +105,7 @@ const RANGES = {
   cellSize: [6, 32],
   speed: [0, 3],
   contrast: [0, 10],
+  brightness: [-1, 1],
   scale: [0.3, 4],
   dither: [0, 1],
   flow: [0, 1],
@@ -120,6 +124,7 @@ const DEFAULT_STYLE: AsciiDitherStyle = {
   cellSize: 12,
   speed: 1,
   contrast: 5,
+  brightness: 0,
   scale: 1,
   dither: 1,
   flow: 0.25,
@@ -144,6 +149,7 @@ const asciiDitherGuide = [
   "Actions: setValue(style) replaces the look and fills any key left out with its default.",
   "tweak(patch) changes only the keys given. applyPreset(name) takes one of the component's items,",
   `like ${Object.keys(backgrounds).slice(0, 4).map(backgroundLabel).join(", ")}; query({ within }) lists them all.`,
+  "A preset built on a photo, like Dunes, shows that picture too, and any other preset removes the picture.",
   "setImage(name) filters one of the pictures in the component's `images` in place of the pattern;",
   "the style still applies to it, and `flow` sets how much it moves. clearImage() goes back to the pattern.",
   "After setImage, `imageStatus` in the next snapshot says loading, ready or error.",
@@ -268,6 +274,9 @@ function normalizeStyle(
     contrast: has("contrast")
       ? numberIn("contrast", patch.contrast)
       : base.contrast,
+    brightness: has("brightness")
+      ? numberIn("brightness", patch.brightness)
+      : base.brightness,
     scale: has("scale") ? numberIn("scale", patch.scale) : base.scale,
     dither: has("dither") ? numberIn("dither", patch.dither) : base.dither,
     flow: has("flow") ? numberIn("flow", patch.flow) : base.flow,
@@ -282,17 +291,30 @@ function normalizeStyle(
 const squash = (name: unknown) =>
   String(name).replace(/[\s_-]+/g, "").toLowerCase()
 
-function presetNamed(name: unknown): Partial<AsciiDitherStyle> {
+type Preset = {
+  key: string
+  style: Partial<AsciiDitherStyle>
+  /** The picture an image background shows, by the name `images` lists it under. */
+  image?: string
+}
+
+const presetKeys = [
+  ...Object.keys(backgrounds),
+  ...Object.keys(imageBackgrounds),
+]
+
+function presetNamed(name: unknown): Preset | undefined {
   const wanted = squash(name)
-  const found = (Object.keys(backgrounds) as (keyof typeof backgrounds)[]).find(
-    (key) => squash(key) === wanted
-  )
-  if (!found) {
-    throw new Error(
-      `No preset ${JSON.stringify(name)}. Presets: ${Object.keys(backgrounds).map(backgroundLabel).join(", ")}.`
-    )
+  const key = presetKeys.find((preset) => squash(preset) === wanted)
+  if (!key) return undefined
+  if (key in backgrounds) {
+    return { key, style: backgrounds[key as keyof typeof backgrounds] }
   }
-  return backgrounds[found]
+  return {
+    key,
+    style: imageBackgrounds[key as keyof typeof imageBackgrounds].style,
+    image: backgroundLabel(key),
+  }
 }
 
 const namesOf = (images: Record<string, string> | undefined) =>
@@ -367,6 +389,12 @@ const asciiDither = definePrimitive({
       )
     }
 
+    // Image backgrounds are only offered while the app lists their picture.
+    const presets = () =>
+      presetKeys
+        .filter((key) => key in backgrounds || named(backgroundLabel(key)))
+        .map((key) => ({ value: key, label: backgroundLabel(key) }))
+
     const onSourceStatus = (status: AsciiDitherSourceStatus) => {
       const state = context.store.get()
       if (state.image && state.imageStatus !== status) {
@@ -384,6 +412,7 @@ const asciiDither = definePrimitive({
         cellSize: value.cellSize,
         speed: value.speed,
         contrast: value.contrast,
+        brightness: value.brightness,
         scale: value.scale,
         dither: value.dither,
         flow: value.flow,
@@ -419,11 +448,31 @@ const asciiDither = definePrimitive({
           reason: "tweak",
           event,
         }),
-      applyPreset: (name: string, event?: Event) =>
-        change("value", normalizeStyle(presetNamed(name)), {
-          reason: "preset",
-          event,
-        }),
+      // A preset is a whole look: an image background brings its picture,
+      // and any other one takes the picture away.
+      applyPreset(name: string, event?: Event) {
+        const preset = presetNamed(name)
+        if (!preset) {
+          throw new Error(
+            `No preset ${JSON.stringify(name)}. Presets: ${presets()
+              .map((item) => item.label)
+              .join(", ")}.`
+          )
+        }
+        const style = normalizeStyle(preset.style)
+        if (preset.image) {
+          const image = named(preset.image)
+          if (!image) {
+            throw new Error(
+              `The preset ${JSON.stringify(name)} needs the image "${preset.image}", which this component doesn't list.`
+            )
+          }
+          change("image", image, { reason: "image", event })
+        } else if (context.store.get().image) {
+          change("image", null, { reason: "clear", event })
+        }
+        return change("value", style, { reason: "preset", event })
+      },
       setImage(image: string, event?: Event) {
         const name = typeof image === "string" ? named(image) : undefined
         if (name) {
@@ -447,11 +496,7 @@ const asciiDither = definePrimitive({
           reason: "pause",
           event,
         }),
-      presets: () =>
-        Object.keys(backgrounds).map((name) => ({
-          value: name,
-          label: backgroundLabel(name),
-        })),
+      presets,
     }
   },
   slots: (slot) => ({
