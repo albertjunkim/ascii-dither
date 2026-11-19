@@ -1,0 +1,54 @@
+{
+  "name": "ascii-dither",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Animated ASCII and dither backgrounds as a UI SDK primitive that agents can restyle.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./react": "./src/react.tsx"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.tsx"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "gallery": "vite examples/gallery",
+    "gallery:build": "vite build examples/gallery"
+  },
+  "peerDependencies": {
+    "@ui-sdk/core": "^0.1.0-beta.10",
+    "@ui-sdk/react": "^0.1.0-beta.10",
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "@ui-sdk/react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@ui-sdk/core": "^0.1.0-beta.10",
+    "@ui-sdk/react": "^0.1.0-beta.10",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "^31.0.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}
